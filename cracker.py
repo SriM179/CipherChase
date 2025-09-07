@@ -111,7 +111,7 @@ def brute_force(input_hash, algo, max_len=6, threads=4, mask=None):
 # ----------------------------
 # Streamlit UI
 # ----------------------------
-st.title("🔐 Universal Hash Cracker (Educational)")
+st.title("🔐 Universal Hash Cracker")
 
 st.warning("⚠️ This tool is for educational purposes only. Do not use it on unauthorized accounts or systems.")
 
