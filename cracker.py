@@ -1,80 +1,169 @@
+import streamlit as st
 import hashlib
 import itertools
-import string
+import os
+import concurrent.futures
+from time import time
 
-def detect_hash(input_hash): 
-    hash_length = len(input_hash)
-    if hash_length == 32: 
+# ----------------------------
+# Hash detection based on length
+# ----------------------------
+def detect_hash(input_hash):
+    length = len(input_hash)
+    if length == 32:
         return "md5"
-    elif hash_length == 40: 
+    elif length == 40:
         return "sha1"
-    elif hash_length == 64: 
+    elif length == 64:
         return "sha256"
-    elif hash_length == 128: 
+    elif length == 128:
         return "sha512"
-
-    else: 
-        raise ValueError("unknown hash type")
-
-def hash_string(word, a): 
-    h = hashlib.new(a)
-    h.update(word.encode("utf-8"))
-    return h.hexdigest()
-
-
-def dictionary_attack(input_hash, a): #dictionary attack
-    try: 
-        with open("list.txt", "r") as file:
-            for password in file: 
-                password = password.strip()
-                check = hash_string(password, a)
-
-                if check == input_hash: 
-                    return password
+    else:
         return None
 
-    except FileNotFoundError: 
-            print("Could not find the file!")
-            return None
+# ----------------------------
+# Hash a string using given algo
+# ----------------------------
+def hash_string(text, algo):
+    h = hashlib.new(algo)
+    h.update(text.encode())
+    return h.hexdigest()
 
-def brute_force(input_hash, a, max_length=8, exact_len=None):
-    chars = string.ascii_lowercase + string.digits
-    lengths = [exact_len] if exact_len else range(1, max_length + 1)
+# ----------------------------
+# Dictionary attack
+# ----------------------------
+def dictionary_attack(input_hash, algo, wordlist="rockyou.txt"):
+    try:
+        with open(wordlist, "r", encoding="latin-1") as file:
+            for word in file:
+                word = word.strip()
+                if hash_string(word, algo) == input_hash:
+                    return word
+        return None
+    except FileNotFoundError:
+        st.error("RockYou wordlist not found!")
+        return None
 
-    for l in lengths:
-        print(f"[*] Trying length {l}...")
-        for guess in itertools.product(chars, repeat=l):
-            guess = ''.join(guess)
-            hashed_guess = hash_string(guess, a)
-            if hashed_guess == input_hash:
-                return guess
+# ----------------------------
+# Hybrid attack
+# ----------------------------
+def hybrid_attack(input_hash, algo, base_words, max_numbers=4, symbols="!@#$%", years=("2023","2024","2025")):
+    subs = {"a": "@", "i": "1", "e": "3", "o": "0", "s": "$", "g": "9"}
+    numbers = [str(n) for n in range(0, 10 ** max_numbers)]
+    patterns = numbers + list(symbols) + list(years)
+
+    for word in base_words:
+        # Leet variants
+        leet = "".join([subs.get(ch.lower(), ch) for ch in word])
+        variants = {word, leet}
+
+        for base in variants:
+            # Append/prepend patterns
+            for pattern in patterns:
+                candidate1 = base + pattern
+                candidate2 = pattern + base
+                if hash_string(candidate1, algo) == input_hash:
+                    return candidate1
+                if hash_string(candidate2, algo) == input_hash:
+                    return candidate2
     return None
 
-def crack_hash(input_hash, max_length=8):
-    try:
-        a = detect_hash(input_hash)
-        print(f"[*] Detected hash algorithm: {a.upper()}")
-    except ValueError as e:
-        print(e)
-        return
+# ----------------------------
+# Brute force worker
+# ----------------------------
+def brute_worker(chars, length, input_hash, algo):
+    for guess in itertools.product(chars, repeat=length):
+        pwd = "".join(guess)
+        if hash_string(pwd, algo) == input_hash:
+            return pwd
+    return None
 
-    # Step 1: Dictionary attack
-    password = dictionary_attack(input_hash, a)
-    if password:
-        print(f"[+] Password found (dictionary): {password}")
-        return
+# ----------------------------
+# Multi-threaded brute force
+# ----------------------------
+def brute_force(input_hash, algo, max_len=6, threads=4, mask=None):
+    chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
 
-    # Step 2: Ask user if they know the password length
-    exact_len = input("Do you know the exact password length? (Press Enter if not): ").strip()
-    exact_len = int(exact_len) if exact_len.isdigit() else None
+    if mask:
+        mask_map = {
+            "?l": "abcdefghijklmnopqrstuvwxyz",
+            "?u": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+            "?d": "0123456789",
+            "?s": "!@#$%^&*",
+            "?a": chars
+        }
+        positions = [mask_map.get(mask[i:i+2], mask[i]) for i in range(0, len(mask), 2)]
+        for guess in itertools.product(*positions):
+            pwd = "".join(guess)
+            if hash_string(pwd, algo) == input_hash:
+                return pwd
+        return None
 
-    print("[*] Trying brute force... (this may take a while)")
-    password = brute_force(input_hash, a, max_length, exact_len)
-    if password:
-        print(f"[+] Password found (brute-force): {password}")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+        for length in range(1, max_len + 1):
+            futures = [executor.submit(brute_worker, chars, length, input_hash, algo)]
+            for future in concurrent.futures.as_completed(futures):
+                result = future.result()
+                if result:
+                    return result
+    return None
+
+# ----------------------------
+# Streamlit UI
+# ----------------------------
+st.title("🔐 Universal Hash Cracker (Educational)")
+
+st.warning("⚠️ This tool is for educational purposes only. Do not use it on unauthorized accounts or systems.")
+
+input_hash = st.text_input("Enter the hash to crack:")
+algo = st.selectbox("Select hashing algorithm", ["Auto Detect", "md5", "sha1", "sha256", "sha512"])
+mask = st.text_input("Optional mask pattern (e.g. ?l?l?l?d?d)")
+threads = st.slider("Number of Threads", 1, os.cpu_count(), 4)
+max_len = st.slider("Max password length (for brute force)", 1, 8, 5)
+attack_style = st.selectbox(
+    "Select attack style",
+    ["Dictionary Only", "Hybrid Only", "Brute Force Only", "Dictionary → Hybrid → Brute Force"]
+)
+
+if st.button("Crack Hash"):
+    if not input_hash:
+        st.error("Please enter a hash!")
     else:
-        print("[-] Password not found.")
+        # Detect hash if Auto Detect selected
+        if algo == "Auto Detect":
+            algo = detect_hash(input_hash)
+            if not algo:
+                st.error("Unknown hash type! Please select manually.")
+            else:
+                st.info(f"Auto-detected algorithm: **{algo.upper()}**")
 
-if __name__ == '__main__':
-    input_hash = input("Enter the hash you want to crack: ").strip()
-    crack_hash(input_hash, max_length=8)
+        start = time()
+        pwd = None
+
+        # Dictionary Attack
+        if attack_style in ["Dictionary Only", "Dictionary → Hybrid → Brute Force"]:
+            st.write("Step 1: Dictionary Attack")
+            pwd = dictionary_attack(input_hash, algo)
+            if pwd:
+                st.success(f"Password found via dictionary: `{pwd}` in {time()-start:.2f}s")
+                if attack_style != "Dictionary → Hybrid → Brute Force":
+                    st.stop()
+
+        # Hybrid Attack
+        if attack_style in ["Hybrid Only", "Dictionary → Hybrid → Brute Force"]:
+            st.write("Step 2: Hybrid Attack")
+            base_words = [pwd] if pwd else []
+            pwd = hybrid_attack(input_hash, algo, base_words)
+            if pwd:
+                st.success(f"Password found via hybrid: `{pwd}` in {time()-start:.2f}s")
+                if attack_style != "Dictionary → Hybrid → Brute Force":
+                    st.stop()
+
+        # Brute Force
+        if attack_style in ["Brute Force Only", "Dictionary → Hybrid → Brute Force"]:
+            st.write("Step 3: Brute Force")
+            pwd = brute_force(input_hash, algo, max_len, threads, mask)
+            if pwd:
+                st.success(f"Password found via brute-force: `{pwd}` in {time()-start:.2f}s")
+            else:
+                st.error("Password not found.")
