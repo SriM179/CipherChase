@@ -3,6 +3,8 @@
 ## Description: 
 An educational Streamlit app that demonstrates common password-cracking strategies—dictionary, hybrid, and multi-threaded brute force against MD5, SHA-1, SHA-256, and SHA-512 hashes. Includes mask-based guessing, simple leet substitutions, and configurable performance settings.
 
+Note: Ethical use only! This project is for learning and research. Do not use it on data, systems, or accounts you do not own or have explicit permission to test. 
+
 Url: 
 
     https://cipher-chase.streamlit.app/
