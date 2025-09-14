@@ -1,7 +1,7 @@
 # 🔐 Universal Hash Cracker
 
 ## Description: 
-An educational Streamlit app that demonstrates common password-cracking strategies—dictionary, hybrid, and multi-threaded brute force—against MD5, SHA-1, SHA-256, and SHA-512 hashes. Includes mask-based guessing, simple leet substitutions, and configurable performance settings.
+An educational Streamlit app that demonstrates common password-cracking strategies—dictionary, hybrid, and multi-threaded brute force against MD5, SHA-1, SHA-256, and SHA-512 hashes. Includes mask-based guessing, simple leet substitutions, and configurable performance settings.
 
 Url: 
 
@@ -17,7 +17,7 @@ Url:
 
 ### Usage (in the UI)
 1. Enter the target hash (hex string).
-2. Select algorithm or choose Auto Detect.
+2. Select an algorithm or choose Auto Detect.
 3. (Optional) Mask pattern for brute force (examples below).
 4. Set Threads and Max password length.
 5. Choose Attack style:
@@ -27,6 +27,18 @@ Url:
     - Dictionary → Hybrid → Brute Force (sequential)
 Click Crack Hash to start. Results show per-phase progress and the total time if found.
 
+###Mask Syntax (for Brute Force)
+- ?l → lowercase letters a-z
+- ?u → uppercase letters A-Z
+- ?d → digits 0-9
+- ?s → symbols !@#$%^&*
+- ?a → all of the above
+
+Examples
+- ?l?l?l?d?d → like abc12
+- ?u?l?l?l?d → like Abcd3
+- ?a?a?a → any 3 characters from the full set
+  
 #### How to Run: 
     streamlit run cracker.py
 
