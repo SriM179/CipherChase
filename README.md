@@ -29,7 +29,7 @@ Url:
     - Dictionary → Hybrid → Brute Force (sequential)
 Click Crack Hash to start. Results show per-phase progress and the total time if found.
 
-###Mask Syntax (for Brute Force)
+### Mask Syntax (for Brute Force)
 - ?l → lowercase letters a-z
 - ?u → uppercase letters A-Z
 - ?d → digits 0-9
